@@ -1,0 +1,35 @@
+image:
+  pullPolicy: Always
+  repository: wallarm-dkr-support.jfrog.io
+  pullSecrets:
+    - name: regcred
+mysql: 
+  mysqlDatabase: wallarm_support_bot
+  mysqlUser: bot
+  mysqlPassword: Fkg7h4f3v6
+  persistence: 
+    enabled: false
+    accessMode: ReadWriteOnce
+    size: 8Gi
+  resources: {}
+
+service:
+  name: wallarm-support-bot
+  type: ClusterIP
+  externalIP: 10.10.10.10
+  externalPort: 8080 
+  internalPort: 8080 #
+
+botTelegramConfig:
+  APItoken: 468257117:AAHSlH4w6tiRM1ZKg2aOl472uhmj52Lp7Go
+logLevel: info
+sleepBeforeTerm: 10
+resources: {}
+livenessProbe:
+  initialDelaySeconds: 5
+  periodSeconds: 5
+  failureThreshold: 2
+readinessProbe:
+  initialDelaySeconds: 3
+  periodSeconds: 1
+  failureThreshold: 2

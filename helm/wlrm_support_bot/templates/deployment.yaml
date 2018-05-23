@@ -1,0 +1,61 @@
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: {{ template "wallarm-support-bot.fullname" . }}
+  labels:
+    app: {{ .Chart.Name }}
+    chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
+    release: {{ .Release.Name }}
+    heritage: {{ .Release.Service }}
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: {{ .Chart.Name }}
+        release: {{ .Release.Name }}
+        heritage: {{ .Release.Service }}
+    spec:
+      {{- if .Values.image.pullSecrets }}
+      imagePullSecrets:
+      {{ toYaml .Values.image.pullSecrets | indent 6 | trim }}
+      {{- end }}
+      containers:
+      - name: {{ .Chart.Name }}
+        image: {{ template "wallarm-support-bot.dockerImage" . }}
+        imagePullPolicy: {{ .Values.image.pullPolicy }}
+        env:
+        - name: TELEGRAM_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: {{ template "wallarm-support-bot.fullname" . }}
+              key: token
+        - name: DBADDR
+          value: {{ template "wallarm-support-bot.mysql.fullname" . }} 
+        - name: DBNAME
+          value: {{ .Values.mysql.mysqlDatabase }} 
+        - name: DBUSER
+          valueFrom:
+            secretKeyRef:
+              name: {{ template "wallarm-support-bot.fullname" . }}
+              key: user
+        - name: DBPASS 
+          valueFrom:
+            secretKeyRef:
+              name: {{ template "wallarm-support-bot.fullname" . }}
+              key: password
+        ports:
+        - name: http
+          containerPort: 8080
+        livenessProbe:
+          httpGet:
+            path: /liveness
+            port: http
+          initialDelaySeconds: {{ .Values.livenessProbe.initialDelaySeconds }}
+          timeoutSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /readiness
+            port: http
+          initialDelaySeconds: {{ .Values.readinessProbe.initialDelaySeconds }}
+          timeoutSeconds: 5
