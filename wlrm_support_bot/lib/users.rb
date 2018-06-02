@@ -1,52 +1,53 @@
 # coding UTF-8
 
-#Основное что от юзера нужно - его тип
 module Users
-  #
+  # Заменить поиск в базе на локальную переменную-хеш id => [role, enabled]
   def self.get(message)
-    unless User[userid: message.from.id]
-      last_name = if message.from.first_name == message.from.last_name
-        ""
-      else
-        " #{message.from.last_name}"
-      end
-      person = BotHelper.normalize_text("#{message.from.first_name}#{last_name}", 100)
-      username = BotHelper.normalize_text(message.from.username, 50, "(smile)")
-      user_params = { name: person,
-                      phone: "+7",
-                      username: username,
-                      userid: message.from.id,
-                      type: "client",
-                      enabled: true }
-      User.create(user_params)
-      user_params
-    else
-      us = User[userid: message.from.id]
+    us = User[userid: message.from.id]
+    if us
       user_params = { name: us.name,
                       phone: us.phone,
-                      username: us.username,  
+                      username: us.username,
                       userid: us.userid,
                       type: us.type,
                       enabled: us.enabled }
+    else
+      last_name = if message.from.first_name == message.from.last_name
+                    ''
+                  else
+                    " #{message.from.last_name}"
+      end
+      person = BotHelper.normalize_text("#{message.from.first_name}#{last_name}", 100)
+      username = BotHelper.normalize_text(message.from.username, 50, '(smile)')
+      user_params = { name: person,
+                      phone: '+7',
+                      username: username,
+                      userid: message.from.id,
+                      type: 'client',
+                      enabled: true }
+      User.create(user_params)
+      user_params
     end
   end
 
-  def self.attr_valide(value, attribute) #normalize
+  def self.attr_valide(value, attribute) # normalize
     result = {}
     case attribute
     when :userid then result[attribute] = value if User[userid: value]
-    when :name 
+    when :name
       if value == BotHelper.normalize_text(value, 100)
-        result[attribute] =  BotHelper.normalize_text(value, 100).sub("_", " ")
+        result[attribute] = BotHelper.normalize_text(value, 100).sub('_', ' ')
       end
     when :phone
       result[attribute] = value if value =~ /^(\+\d{11}|[8]{1}\d{10})$/
     when :username
-      if BotHelper.normalize_text(value, 50, "(smile)") =~ /^[a-zA-Z\d_-]*$/
-        result[attribute] = BotHelper.normalize_text(value, 50, "(smile)")
+      if BotHelper.normalize_text(value, 50, '(smile)') =~ /^[a-zA-Z\d_-]*$/
+        result[attribute] = BotHelper.normalize_text(value, 50, '(smile)')
       end
     when :type
-      result[attribute] = value if ["client", "wallarm", "admin"].include? value
+      if %w[client wallarm admin partner].include? value
+        result[attribute] = value
+      end
     when :enabled
       result[attribute]  = true if value == 'true'
       result[attribute]  = false if value == 'false'
@@ -56,135 +57,160 @@ module Users
     result if result.size == 1
   end
 
-  def self.add(params= {})
+  def self.add(params = {})
     user = attr_valide(params[:user_to_add], :userid_new)
-    if (["admin", "testing"].include? params[:type]) && (params[:user_type] == "admin")
+    if (%w[admin testing].include? params[:type]) && (params[:user_type] == 'admin')
       if user
-        params = { name: params[:name], 
-                   phone: "+7",
+        params = { name: params[:name],
+                   phone: '+7',
                    username: params[:username],
-                   type: "client",
+                   type: 'client',
                    enabled: true }.merge(user)
         User.create(params)
       end
     end
   end
 
-  def self.set(params= {})
-    if (["admin", "testing"].include? params[:type]) && (params[:user_type] == "admin")
+  def self.set(params = {})
+    if (%w[admin testing].include? params[:type]) && (params[:user_type] == 'admin')
       unless params[:payload].count != 3
         user = params[:payload][0].to_i
         attribute = params[:payload][1].to_sym
         val = params[:payload][2]
-        settable = [:phone, :username, :name, :type, :enabled]
+        settable = %i[phone username name type enabled]
         changes = attr_valide(val, attribute)
-        SemanticLogger['users'].info(changes)
+        SemanticLogger['users'].info(changes) if LOGLEVEL == 'info'
         if (settable.include? attribute) && attr_valide(user, :userid) && changes
           User[userid: user].update(changes)
-          SemanticLogger['users'].info("#{user} changed #{attribute} to #{val}")
+          if LOGLEVEL == 'info'
+            SemanticLogger['users'].info("#{user} #{attribute} >> #{val}")
+          end
         end
       end
     end
   end
-  
-  def self.give(params= {})
-    if (["admin", "testing"].include? params[:type]) && (params[:user_type] == "admin")
+
+  def self.give(params = {})
+    if (%w[admin testing].include? params[:type]) && (params[:user_type] == 'admin')
       data = if User.where(enabled: params[:enabled]).count == 0
-        ['no users']
-      else
-        data = User.where(enabled: params[:enabled]).all.map{|u| 
-          "#{u.username}, #{u.name}, #{u.type}, #{u.userid}"}
+               ['no users']
+             else
+               data = User.where(enabled: params[:enabled]).all.map do |u|
+                 "#{u.username}, #{u.name}, #{u.type}, #{u.userid}"
+               end
       end
-      BotHelper.send_message(chat_id: params[:chatid], 
-                            text: "В базе данных зарегистрированы:\n#{data.join("\n")}")
+      BotHelper.send_message(chat_id: params[:chatid],
+                             text: "В базе данных зарегистрированы:
+                             \n#{data.join("\n")}")
     end
   end
 
-  def self.drop()
+  def self.drop
     DB.drop_table :users
-    SemanticLogger['users'].info("table dropped")
+    SemanticLogger['users'].info('table dropped') if LOGLEVEL == 'info'
   end
 
-  def self.create() 
+  def self.create
     DB.create_table :users do
       Bigint :userid, primary_key: true
       String :name, null: true #
       String :phone, null: true #
       String :username, null: true #
-      String :type, null: false, default: "client" #
+      String :type, null: false, default: 'client' #
       TrueClass :enabled, null: false, default: true #
     end
-    SemanticLogger['users'].info("table created")
+    SemanticLogger['users'].info('table created') if LOGLEVEL == 'info'
   end
 
-  def self.seed_default()
-    user_add = 
-    [ { name: "Wallarm Support Bot", 
-      username: "wlrm_support_bot",
-      userid: 468257117,  
-      type: "admin",
-      enabled: true },
+  def self.seed_default
+    user_add =
+      [{ name: 'Wallarm Support Bot',
+         username: 'wlrm_support_bot',
+         userid: 468_257_117,
+         type: 'admin',
+         enabled: true },
 
-      { name: "Konstantin Nechaev", 
-      username: "Konst_c13",
-      userid: 212372067,  
-      type: "admin",
-      enabled: true },
+       { name: 'Konstantin Nechaev',
+         username: 'Konst_c13',
+         userid: 212_372_067,
+         type: 'admin',
+         enabled: true },
 
-      { name: "Dinko Dimitrov",
-      username: "D1nko",
-      userid: 2822539,  
-      type: "admin",
-      enabled: true },
+       { name: 'Dinko Dimitrov',
+         username: 'D1nko',
+         userid: 2_822_539,
+         type: 'admin',
+         enabled: true },
 
-      { name: "Vadim Shepelev",
-      username: "x_VS_x",
-      userid: 423922415,  
-      type: "admin",
-      enabled: true },
+       { name: 'Vadim Shepelev',
+         username: 'x_VS_x',
+         userid: 423_922_415,
+         type: 'admin',
+         enabled: true },
 
-      { name: "Andrey Kolesnikov",
-      username: "nesoneg",
-      userid: 46525978,  
-      type: "wallarm",
-      enabled: true },
+       { name: 'Anton Babinov',
+         username: 'tonchaa',
+         userid: 52_104_600,
+         type: 'admin',
+         enabled: true },
 
-      { name: "Alexandr Kondrashov",
-      username: "Bykva",
-      userid: 184695443,  
-      type: "wallarm",
-      enabled: true },
+       { name: 'Pavel Lazarev',
+         username: 'plazarev',
+         userid: 416_451_874,
+         type: 'admin',
+         enabled: true },
 
-    { name: "Alexey Remizov",
-      username: "alxrem",
-      userid: 99316235,  
-      type: "wallarm",
-      enabled: true }]
+       { name: 'Alexander Golovko',
+         username: 'Alexander_Golovko',
+         userid: 72_667_164,
+         type: 'wallarm',
+         enabled: true },
 
-    user_add.each{|u| User.where(username: u[:username]).count == 0 ? User.create(u) : nil }
+       { name: 'Andrey Kolesnikov',
+         username: 'nesoneg',
+         userid: 46_525_978,
+         type: 'wallarm',
+         enabled: true },
+
+       { name: 'Alexandr Kondrashov',
+         username: 'Bykva',
+         userid: 184_695_443,
+         type: 'wallarm',
+         enabled: true },
+
+       { name: 'Alexey Remizov',
+         username: 'alxrem',
+         userid: 99_316_235,
+         type: 'wallarm',
+         enabled: true }]
+
+    user_add.each { |u| User.where(username: u[:username]).count == 0 ? User.create(u) : nil }
   end
 
-  def self.backup()
-    result =  User.all.map{ |us|
-              { name: us.name,
-                phone: us.phone,
-                username: us.username,
-                userid: us.userid,
-                type: us.type,
-                enabled: us.enabled }}
-    SemanticLogger['users'].info("backup done")
+  def self.backup
+    result =  User.all.map do |us|
+      { name: us.name,
+        phone: us.phone,
+        username: us.username,
+        userid: us.userid,
+        type: us.type,
+        enabled: us.enabled }
+    end
+    SemanticLogger['users'].info('backup done') if LOGLEVEL == 'info'
     result
   end
 
   def self.seed(saved_data)
-    saved_data.each{|u| User[userid: u[:userid]].nil? ? User.create(u) : nil } unless saved_data.nil?
-    SemanticLogger['users'].info("table filled by backuped data")
+    saved_data.each { |u| User[userid: u[:userid]].nil? ? User.create(u) : nil } unless saved_data.nil?
+    if LOGLEVEL == 'info'
+      SemanticLogger['users'].info('table filled by backuped data')
+    end 
   end
 
-  def self.reroll(params={})
-    # сохраняется только недельный бекап статистики 
-    locked = [212372067]
-    if ((["admin", "testing"].include? params[:type]) && (params[:user_type] == "admin")) || (locked.include? params[:id])
+  def self.reroll(params = {})
+    # сохраняется только недельный бекап статистики
+    locked = [212_372_067]
+    if ((%w[admin testing].include? params[:type]) && (params[:user_type] == 'admin')) || (locked.include? params[:id])
       saved_tickets = Tickets.backup
       Tickets.drop
       saved_stat = Statistics.backup
@@ -200,5 +226,4 @@ module Users
       Tickets.seed(saved_tickets)
     end
   end
-
 end

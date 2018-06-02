@@ -1,45 +1,46 @@
 # coding UTF-8
 
 module Statistics
-  #Модуль, который обслуживает работу с таблицей статистики
- 
-  def self.give(params= {})
-    if (["internal", "admin", "testing"].include? params[:type]) && (['wallarm', 'admin'].include? params[:user_type])
-      time_start = params[:start]        
+  # Модуль, который обслуживает работу с таблицей статистики
+
+  def self.give(params = {})
+    if (%w[internal admin testing].include? params[:type]) && (%w[wallarm admin].include? params[:user_type])
+      time_start = params[:start]
       time_end = time_start + 3600 * 24
       dataset = DB['SELECT c.clientid, c.client, c.partnerid, s.duration, t.tickets
-                    FROM (SELECT MAX(time) - MIN(time) duration, chatid 
+                    FROM (SELECT MAX(time) - MIN(time) duration, chatid
                     FROM statistics
                     WHERE time BETWEEN ? AND ? GROUP BY chatid) s
-                    INNER JOIN (SELECT * FROM chats WHERE type = "client_chat") c 
+                    INNER JOIN (SELECT * FROM chats WHERE type = "client_chat") c
                     ON s.chatid = c.chatid
-                    LEFT OUTER JOIN (SELECT chatid, GROUP_CONCAT(jira) tickets 
-                    FROM tickets WHERE created BETWEEN ? AND ? GROUP BY chatid ) t 
+                    LEFT OUTER JOIN (SELECT chatid, GROUP_CONCAT(jira) tickets
+                    FROM tickets WHERE created BETWEEN ? AND ? GROUP BY chatid ) t
                     ON s.chatid = t.chatid', time_start, time_end, time_start, time_end].all
-      #Тикеты только актуальные показывать, а не все!
-      result, count = [], 1
+      # Тикеты только актуальные показывать, а не все!
+      result = []
+      count = 1
       dataset.each do |h|
         str = "#{count}) "
         count += 1
         h.each do |k, v|
           v = if k == :duration
-            BotHelper.normalize_time(v)
-          else; v; end
-          str += (k.to_s + ": " + v.to_s + ", ") if v
+                BotHelper.normalize_time(v)
+              else; v; end
+          str += (k.to_s + ': ' + v.to_s + ', ') if v
         end
         result.push(str)
       end
-      BotHelper.send_message(chat_id: params[:chatid], 
-              text: "Статистика за #{params[:date]}:\n#{result.join("\n")}")      
+      BotHelper.send_message(chat_id: params[:chatid],
+                             text: "Статистика за #{params[:date]}:\n#{result.join("\n")}")
     end
   end
 
-  def self.drop()
+  def self.drop
     DB.drop_table :statistics
-    SemanticLogger['statistics'].info("table dropped")
+    SemanticLogger['statistics'].info('table dropped') if LOGLEVEL == 'info'
   end
 
-  def self.create() 
+  def self.create
     DB.create_table :statistics do
       Bigint  :id, primary_key: true
       Integer :time, null: false #
@@ -53,33 +54,36 @@ module Statistics
       foreign_key [:chatid], :chats, key: :chatid, unique: false
       foreign_key [:userid], :users, key: :userid, unique: false
     end
-    SemanticLogger['statistics'].info("table created")
+    SemanticLogger['statistics'].info('table created') if LOGLEVEL == 'info'
   end
 
-  def self.backup()
+  def self.backup
     time_start = Time.now.to_i - 3600 * 24 * 7
     result = StatisticRecord.where(deleted: false,
-                                    time: time_start..Time.now.to_i).all.map{ |sr|
-                                          { time: sr.time,
-                                            clientid: sr.clientid,
-                                            message_id: sr.message_id,
-                                            message_text: sr.message_text,
-                                            username: sr.username,
-                                            userid: sr.userid,
-                                            chatid: sr.chatid }}
-    SemanticLogger['statistics'].info("backup done")
+                                   time: time_start..Time.now.to_i).all.map do |sr|
+      { time: sr.time,
+        clientid: sr.clientid,
+        message_id: sr.message_id,
+        message_text: sr.message_text,
+        username: sr.username,
+        userid: sr.userid,
+        chatid: sr.chatid }
+    end
+    SemanticLogger['statistics'].info('backup done') if LOGLEVEL == 'info'
     result
   end
 
   def self.seed(saved_data)
-    saved_data.each{|sr| StatisticRecord.create(sr)} unless saved_data.nil?
-    SemanticLogger['statistics'].info("table filled by backuped data")
+    saved_data.each { |sr| StatisticRecord.create(sr) } unless saved_data.nil?
+    if LOGLEVEL == 'info'
+      SemanticLogger['statistics'].info('table filled by backuped data')
+    end
   end
 
-  def self.reroll(params={})
-    if ((["admin", "testing"].include? params[:type]) && (params[:user_type] == "admin")) || (locked.include? params[:id])
+  def self.reroll(params = {})
+    if ((%w[admin testing].include? params[:type]) && (params[:user_type] == 'admin')) || (locked.include? params[:id])
       saved_tickets = Tickets.backup
-      Tickets.drop      
+      Tickets.drop
       saved_data = backup
       drop
       create
@@ -88,5 +92,4 @@ module Statistics
       Tickets.seed(saved_tickets)
     end
   end
-
 end

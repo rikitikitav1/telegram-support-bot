@@ -8,7 +8,7 @@ unless DB.tables.include? :users
     String :name, null: true #
     String :phone, null: true #
     String :username, null: true #
-    String :type, null: false, default: "client" #
+    String :type, null: false, default: 'client' #
     TrueClass :enabled, null: false, default: true #
   end
 end
@@ -20,8 +20,8 @@ unless DB.tables.include? :chats
     String :partnerid, null: true
     String :client, null: true
     Integer :created, null: false #
-    String :language, null: false, default: "ru"
-    String :type, null: false, default: "client_chat"
+    String :language, null: false, default: 'ru'
+    String :type, null: false, default: 'client_chat'
     TrueClass :enabled, null: false, default: true #
   end
 end
@@ -47,16 +47,14 @@ unless DB.tables.include? :tickets
     String :jira, size: 10, primary_key: true
     String :clientid, null: true
     Integer :created, null: false #
-    String :status, null: false, default: "open" #
+    String :status, null: false, default: 'open' #
     TrueClass :resolved, null: false, default: false #
     Bigint :userid, null: false
     Bigint :chatid, null: false
+    Integer :partnerid, null: false, default: 1
     foreign_key [:chatid], :chats, key: :chatid, unique: false
     foreign_key [:userid], :users, key: :userid, unique: false
     foreign_key :statid, :statistics, key: :id, unique: true
   end
 end
-#Добавить учет тикетов
-#Добавить роут переключения статуса "open", "l2", "waiting for customer", "waiting for develop", "done"
-#Добавить роут отчета всех
-#Добавить роут отчета по клиенту (чату)
+

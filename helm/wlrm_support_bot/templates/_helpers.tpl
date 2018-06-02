@@ -27,10 +27,8 @@ We truncate at 63 chars because some Kubernetes name fields are limited to this 
 docker image name
 */}}
 {{- define "wallarm-support-bot.dockerImage" -}}
-{{-   if .Values.image.name -}}
-{{-     printf .Values.image.name -}}
-{{-   else if ( semver .Chart.Version ).Prerelease -}}
-{{-     printf "wallarm-dkr-support.jfrog.io/wallarm-support-bot:%s" .Chart.Version -}}
+{{-   if .Values.image.repository -}}
+{{-     printf .Values.image.repository ":%s" .Values.image.tag -}}
 {{-   else -}}
 {{-     printf "wallarm-dkr-support.jfrog.io/wallarm-support-bot:%s" .Chart.Version -}}
 {{-   end -}}
