@@ -10,21 +10,21 @@ module BotHelper
                  params[:text].sub('inputable_val', params[:input])
                else
                  params[:text].sub('inputable_val', '') unless params[:text].is_a?(Hash)
-        end
+               end
         bot.api.send_message(chat_id: params[:chat_id], text: text)
       end
       text = if mes['result']['text']
                mes['result']['text'].tr("\n", ' ')[0..25].gsub(/[\u{10000}-\u{FFFFF}]/, '(smile)')
              else
                ''
-      end
-      params = { chatid: params[:chat_id],
-                 clientid: params[:clientid],
-                 username: mes['result']['from']['username'],
-                 message_id: mes['result']['message_id'],
-                 time: mes['result']['date'],
-                 message_text: text,
-                 userid: mes['result']['from']['id'] }
+             end
+      params = {chatid: params[:chat_id],
+                clientid: params[:clientid],
+                username: mes['result']['from']['username'],
+                message_id: mes['result']['message_id'],
+                time: mes['result']['date'],
+                message_text: text,
+                userid: mes['result']['from']['id']}
       sr = StatisticRecord.create(params)
       Tickets.add(params.merge(jira: jira, statid: sr.id)) if jira
     rescue => e
@@ -47,12 +47,12 @@ module BotHelper
     secs = secs.to_i unless secs.is_a?(Integer)
     time = secs.round
     multilang = {
-      'ru' => { min: 'минут',
-                day: 'днeй',
-                hrs: 'часов' },
-      'en' => { min: 'min',
-                day: 'days',
-                hrs: 'hours' }
+        'ru' => {min: 'минут',
+                 day: 'днeй',
+                 hrs: 'часов'},
+        'en' => {min: 'min',
+                 day: 'days',
+                 hrs: 'hours'}
     }
     if time == 0
       str = '0'
@@ -73,12 +73,13 @@ module BotHelper
 
   def self.env(params = {})
     locked = [212_372_067]
+    chatid = params[:chatid]
     if locked.include? params[:id]
-      env_params = { host: ENV.fetch('DBADDR'),
-                     database: ENV.fetch('DBNAME'),
-                     user: ENV.fetch('DBUSER'),
-                     password: ENV.fetch('DBPASS') }
-      bot.api.send_message(chat_id: chatid, text: "env_params: #{env_params}")
+      env_params = {host: ENV.fetch('DBADDR'),
+                    database: ENV.fetch('DBNAME'),
+                    user: ENV.fetch('DBUSER'),
+                    password: ENV.fetch('DBPASS')}
+      send_message(chat_id: chatid, text: "env_params: #{env_params}")
     end
   end
 
@@ -105,7 +106,7 @@ module BotHelper
   end
 
   def self.send_attacks(params = {})
-    params = { chat_id: 0, url: 'https://google.ru' }.merge(params)
+    params = {chat_id: 0, url: 'https://google.ru'}.merge(params)
     result_array = []
     begin
       my_ip = RestClient::Request.execute(method: :get, url: 'http://ifconfig.co/ip').body
@@ -134,13 +135,13 @@ module BotHelper
           end
     # Idea - vectors DB
     send_request.call(:get, url + '/?<script>alert(123)</script>',
-                      headers: { 'User-Agent' => 'wrm_support_bot' })
+                      headers: {'User-Agent' => 'wrm_support_bot'})
     send_request.call(:post, url + '/?<script>alert(123)</script>',
-                      headers: { 'User-Agent' => 'wrm_support_bot' })
+                      headers: {'User-Agent' => 'wrm_support_bot'})
     send_request.call(:get, url,
-                      headers: { 'User-Agent' => 'wrm_support_bot',
-                                 'test' => '<script>alert(123)</script>' })
-    result = result_array.count.to_s + " attacks from:\n" + my_ip + result_array.uniq.map { |rk| rk.to_s + ' - ' + result_array.select { |r| r == rk }.count.to_s }.join("\n")
+                      headers: {'User-Agent' => 'wrm_support_bot',
+                                'test' => '<script>alert(123)</script>'})
+    result = result_array.count.to_s + " attacks from:\n" + my_ip + result_array.uniq.map {|rk| rk.to_s + ' - ' + result_array.select {|r| r == rk}.count.to_s}.join("\n")
     send_message(chat_id: params[:chat_id], text: result)
   end
 end

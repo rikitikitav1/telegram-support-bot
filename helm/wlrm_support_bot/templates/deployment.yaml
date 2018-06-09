@@ -17,8 +17,12 @@ spec:
         release: {{ .Release.Name }}
         heritage: {{ .Release.Service }}
     spec:
+      {{- if .Values.image.pullSecrets }}
       imagePullSecrets:
-      - name: regcred
+      {{- range .Values.image.pullSecrets }}
+        - name: {{ . }}
+      {{- end }}
+      {{- end }}
       containers:
       - name: {{ .Chart.Name }}
         image: {{ .Values.image.repository }}:{{ .Values.image.tag }}
@@ -53,10 +57,10 @@ spec:
             path: /liveness
             port: http
           initialDelaySeconds: {{ .Values.livenessProbe.initialDelaySeconds }}
-          timeoutSeconds: 10
+          timeoutSeconds: {{ .Values.livenessProbe.periodSeconds }}
         readinessProbe:
           httpGet:
             path: /readiness
             port: http
           initialDelaySeconds: {{ .Values.readinessProbe.initialDelaySeconds }}
-          timeoutSeconds: 5
+          timeoutSeconds: {{ .Values.readinessProbe.periodSeconds }}

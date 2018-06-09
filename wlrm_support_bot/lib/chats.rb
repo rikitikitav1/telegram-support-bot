@@ -22,31 +22,38 @@ module Chats
     else
       ch = Chat[chatid: message.chat.id]
       if ch
-        Chat[chatid: message.chat.id].update(enabled: true)
-
-        chat_params = { created: ch.created,
-                        clientid: ch.clientid,
-                        partnerid: ch.partnerid,
-                        chatid: ch.chatid,
-                        language: ch.language,
-                        type: ch.type,
-                        client: ch.client,
-                        enabled: true }
+        chat_params = {created: ch.created,
+                       clientid: ch.clientid,
+                       partnerid: ch.partnerid,
+                       chatid: ch.chatid,
+                       language: ch.language,
+                       type: ch.type,
+                       client: ch.client,
+                       enabled: ch.enabled}
       else
-        clientid = message.chat.title.scan(/\d+.*\d+/)[0].scan(/\d+/).to_s.gsub(/\]|\[|\"/, '')
+
+        clientid = unless message.chat.title.scan(/\d+.*\d+/)[0].nil?
+                     message.chat.title.scan(/\d+.*\d+/)[0].scan(/\d+/).to_s.gsub(/\]|\[|\"/, '')
+                   else
+                     '0'
+                   end
+
         client = message.chat.title.sub(/wallarm/i, '').gsub(/[\d|\|]/, '')
-        chat_params = { created: Time.now.to_i,
-                        clientid: clientid,
-                        partnerid: '1',
-                        chatid: message.chat.id,
-                        language: 'ru',
-                        type: 'client_chat',
-                        client: client,
-                        enabled: true }
+        chat_params = {created: Time.now.to_i,
+                       clientid: clientid,
+                       partnerid: '1',
+                       chatid: message.chat.id,
+                       language: 'ru',
+                       type: 'client_chat',
+                       client: client,
+                       enabled: true}
         Chat.create(chat_params)
         c = Chat[chatid: message.chat.id]
-        str = "cl: #{c.clientid}, pa: #{c.partnerid}, #{c.language}, #{c.type}, #{c.chatid}"
-        chats = Chat.where(type: %w[admin testing]).all.map(&:chatid)
+        str = "cl: #{c.clientid}, name: #{c.client}, pa: #{c.partnerid}, #{c.language}, #{c.type}, #{c.chatid}"
+        chats = Chat.where(type: %w[admin testing], enabled: true).all.map(&:chatid)
+        if LOGLEVEL == 'info'
+          SemanticLogger['chats'].info("New client added:\n#{str}")
+        end
         chats.each do |cd|
           BotHelper.send_message(chat_id: cd,
                                  text: "Бот подключен новому клиенту:\n#{str}")
@@ -78,10 +85,10 @@ module Chats
         result[attribute] = value
       end
     when :enabled
-      result[attribute]  = true if value == 'true'
-      result[attribute]  = false if value == 'false'
+      result[attribute] = true if value == 'true'
+      result[attribute] = false if value == 'false'
     when :chatid
-      result[attribute]  = value if Chat[chatid: value]
+      result[attribute] = value if Chat[chatid: value]
     when :chatid_new
       result[:chatid] = value.to_i if value.to_i.to_s[0..20] == value
     end
@@ -92,12 +99,12 @@ module Chats
     chat = attr_valide(params[:chat_to_add], :chatid_new)
     if (%w[admin testing].include? params[:type]) && (params[:user_type] == 'admin')
       if chat
-        params = { created: Time.now.to_i,
-                   clientid: '10500',
-                   language: 'ru',
-                   type: 'client_chat',
-                   client: '',
-                   enabled: true }.merge(chat)
+        params = {created: Time.now.to_i,
+                  clientid: '10500',
+                  language: 'ru',
+                  type: 'client_chat',
+                  client: '',
+                  enabled: true}.merge(chat)
         Chat.create(params)
       end
     end
@@ -130,9 +137,9 @@ module Chats
                ['no chats']
              else
                data = Chat.where(enabled: params[:enabled]).all.map do |c|
-                 "cl: #{c.clientid}, pa: #{c.partnerid}, #{c.language}, #{c.type}, #{c.chatid}"
+                 "cl: #{c.clientid}, name: #{c.client}, pa: #{c.partnerid}, #{c.language}, #{c.type}, #{c.chatid}"
                end
-      end
+             end
       BotHelper.send_message(chat_id: params[:chatid],
                              text: "Бот подключен в следующих чатах:\n#{data.join("\n")}")
     end
@@ -159,56 +166,38 @@ module Chats
 
   def self.seed_default
     chat_add =
-      [{ chatid: -304_890_260,
-         client: 'test',
-         type: 'testing',
-         created: Time.now.to_i,
-         clientid: '1',
-         partnerid: '1',
-         language: 'en',
-         enabled: true },
+        [{chatid: -304_890_260,
+          client: 'test',
+          type: 'testing',
+          created: Time.now.to_i,
+          clientid: '1',
+          partnerid: '1',
+          language: 'en',
+          enabled: true}]
 
-       { chatid: -1_001_108_274_943,
-         client: 'Admins vs support',
-         type: 'internal',
-         created: Time.now.to_i,
-         clientid: '1',
-         partnerid: '1',
-         language: 'ru',
-         enabled: true },
-
-       { chatid: -238_879_239,
-         client: 'support',
-         type: 'admin',
-         created: Time.now.to_i,
-         clientid: '1',
-         partnerid: '1',
-         language: 'ru',
-         enabled: true }]
-
-    chat_add.each { |c| Chat[chatid: c[:chatid]].nil? ? Chat.create(c) : nil }
+    chat_add.each {|c| Chat[chatid: c[:chatid]].nil? ? Chat.create(c) : nil}
   end
 
   def self.backup
     result = Chat.all.map do |ch|
-      { chatid: ch.chatid,
-        client: ch.client,
-        type: ch.type,
-        created: ch.created,
-        clientid: ch.clientid,
-        partnerid: ch.partnerid,
-        language: ch.language,
-        enabled: ch.created }
+      {chatid: ch.chatid,
+       client: ch.client,
+       type: ch.type,
+       created: ch.created,
+       clientid: ch.clientid,
+       partnerid: ch.partnerid,
+       language: ch.language,
+       enabled: ch.created}
     end
     SemanticLogger['chats'].info('backup done') if LOGLEVEL == 'info'
     result
   end
 
   def self.seed(saved_data)
-    saved_data.each { |c| Chat[chatid: c[:chatid]].nil? ? Chat.create(c) : nil } unless saved_data.nil?
+    saved_data.each {|c| Chat[chatid: c[:chatid]].nil? ? Chat.create(c) : nil} unless saved_data.nil?
     if LOGLEVEL == 'info'
       SemanticLogger['chats'].info('table filled by backuped data')
-    end  
+    end
   end
 
   def self.reroll(params = {})

@@ -5,26 +5,26 @@ module Users
   def self.get(message)
     us = User[userid: message.from.id]
     if us
-      user_params = { name: us.name,
-                      phone: us.phone,
-                      username: us.username,
-                      userid: us.userid,
-                      type: us.type,
-                      enabled: us.enabled }
+      user_params = {name: us.name,
+                     phone: us.phone,
+                     username: us.username,
+                     userid: us.userid,
+                     type: us.type,
+                     enabled: us.enabled}
     else
       last_name = if message.from.first_name == message.from.last_name
                     ''
                   else
                     " #{message.from.last_name}"
-      end
+                  end
       person = BotHelper.normalize_text("#{message.from.first_name}#{last_name}", 100)
       username = BotHelper.normalize_text(message.from.username, 50, '(smile)')
-      user_params = { name: person,
-                      phone: '+7',
-                      username: username,
-                      userid: message.from.id,
-                      type: 'client',
-                      enabled: true }
+      user_params = {name: person,
+                     phone: '+7',
+                     username: username,
+                     userid: message.from.id,
+                     type: 'client',
+                     enabled: true}
       User.create(user_params)
       user_params
     end
@@ -33,7 +33,8 @@ module Users
   def self.attr_valide(value, attribute) # normalize
     result = {}
     case attribute
-    when :userid then result[attribute] = value if User[userid: value]
+    when :userid
+      result[attribute] = value if User[userid: value]
     when :name
       if value == BotHelper.normalize_text(value, 100)
         result[attribute] = BotHelper.normalize_text(value, 100).sub('_', ' ')
@@ -49,8 +50,8 @@ module Users
         result[attribute] = value
       end
     when :enabled
-      result[attribute]  = true if value == 'true'
-      result[attribute]  = false if value == 'false'
+      result[attribute] = true if value == 'true'
+      result[attribute] = false if value == 'false'
     when :userid_new
       result[:userid] = value.to_i if value.to_i.to_s[0..20] == value
     end
@@ -61,11 +62,11 @@ module Users
     user = attr_valide(params[:user_to_add], :userid_new)
     if (%w[admin testing].include? params[:type]) && (params[:user_type] == 'admin')
       if user
-        params = { name: params[:name],
-                   phone: '+7',
-                   username: params[:username],
-                   type: 'client',
-                   enabled: true }.merge(user)
+        params = {name: params[:name],
+                  phone: '+7',
+                  username: params[:username],
+                  type: 'client',
+                  enabled: true}.merge(user)
         User.create(params)
       end
     end
@@ -98,7 +99,7 @@ module Users
                data = User.where(enabled: params[:enabled]).all.map do |u|
                  "#{u.username}, #{u.name}, #{u.type}, #{u.userid}"
                end
-      end
+             end
       BotHelper.send_message(chat_id: params[:chatid],
                              text: "В базе данных зарегистрированы:
                              \n#{data.join("\n")}")
@@ -124,87 +125,39 @@ module Users
 
   def self.seed_default
     user_add =
-      [{ name: 'Wallarm Support Bot',
-         username: 'wlrm_support_bot',
-         userid: 468_257_117,
-         type: 'admin',
-         enabled: true },
+        [{name: 'Wallarm Support Bot',
+          username: 'wlrm_support_bot',
+          userid: 468_257_117,
+          type: 'admin',
+          enabled: true},
 
-       { name: 'Konstantin Nechaev',
-         username: 'Konst_c13',
-         userid: 212_372_067,
-         type: 'admin',
-         enabled: true },
+         {name: 'Konstantin Nechaev',
+          username: 'Konst_c13',
+          userid: 212_372_067,
+          type: 'admin',
+          enabled: true}]
 
-       { name: 'Dinko Dimitrov',
-         username: 'D1nko',
-         userid: 2_822_539,
-         type: 'admin',
-         enabled: true },
-
-       { name: 'Vadim Shepelev',
-         username: 'x_VS_x',
-         userid: 423_922_415,
-         type: 'admin',
-         enabled: true },
-
-       { name: 'Anton Babinov',
-         username: 'tonchaa',
-         userid: 52_104_600,
-         type: 'admin',
-         enabled: true },
-
-       { name: 'Pavel Lazarev',
-         username: 'plazarev',
-         userid: 416_451_874,
-         type: 'admin',
-         enabled: true },
-
-       { name: 'Alexander Golovko',
-         username: 'Alexander_Golovko',
-         userid: 72_667_164,
-         type: 'wallarm',
-         enabled: true },
-
-       { name: 'Andrey Kolesnikov',
-         username: 'nesoneg',
-         userid: 46_525_978,
-         type: 'wallarm',
-         enabled: true },
-
-       { name: 'Alexandr Kondrashov',
-         username: 'Bykva',
-         userid: 184_695_443,
-         type: 'wallarm',
-         enabled: true },
-
-       { name: 'Alexey Remizov',
-         username: 'alxrem',
-         userid: 99_316_235,
-         type: 'wallarm',
-         enabled: true }]
-
-    user_add.each { |u| User.where(username: u[:username]).count == 0 ? User.create(u) : nil }
+    user_add.each {|u| User.where(username: u[:username]).count == 0 ? User.create(u) : nil}
   end
 
   def self.backup
-    result =  User.all.map do |us|
-      { name: us.name,
-        phone: us.phone,
-        username: us.username,
-        userid: us.userid,
-        type: us.type,
-        enabled: us.enabled }
+    result = User.all.map do |us|
+      {name: us.name,
+       phone: us.phone,
+       username: us.username,
+       userid: us.userid,
+       type: us.type,
+       enabled: us.enabled}
     end
     SemanticLogger['users'].info('backup done') if LOGLEVEL == 'info'
     result
   end
 
   def self.seed(saved_data)
-    saved_data.each { |u| User[userid: u[:userid]].nil? ? User.create(u) : nil } unless saved_data.nil?
+    saved_data.each {|u| User[userid: u[:userid]].nil? ? User.create(u) : nil} unless saved_data.nil?
     if LOGLEVEL == 'info'
       SemanticLogger['users'].info('table filled by backuped data')
-    end 
+    end
   end
 
   def self.reroll(params = {})

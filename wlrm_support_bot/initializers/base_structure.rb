@@ -1,7 +1,5 @@
 # coding UTF-8
 
-#[:statistics, :chats, :users].each{|t| (DB.tables.include? t) ? DB.drop_table : nil}
-
 unless DB.tables.include? :users
   DB.create_table :users do
     Bigint :userid, primary_key: true
@@ -57,4 +55,3 @@ unless DB.tables.include? :tickets
     foreign_key :statid, :statistics, key: :id, unique: true
   end
 end
-

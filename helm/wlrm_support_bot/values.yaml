@@ -2,6 +2,8 @@ image:
   pullPolicy: Always
   repository: wallarm-dkr-support.jfrog.io/wallarm-support-bot
   tag: 0.1.2
+  pullSecrets:
+  - regcred  
 mysql: 
   mysqlDatabase: wallarm_support_bot
   mysqlUser: bot

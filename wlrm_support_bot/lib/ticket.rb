@@ -3,13 +3,13 @@
 module Tickets
   def self.add(params = {})
     unless params[:jira].nil?
-      ticket_params = { created: params[:time],
-                        jira: params[:jira],
-                        clientid: params[:clientid],
-                        statid: params[:statid],
-                        userid: params[:userid],
-                        partnerid: params[:partnerid],
-                        chatid: params[:chatid] }
+      ticket_params = {created: params[:time],
+                       jira: params[:jira],
+                       clientid: params[:clientid],
+                       statid: params[:statid],
+                       userid: params[:userid],
+                       partnerid: params[:partnerid],
+                       chatid: params[:chatid]}
       Ticket.create(ticket_params)
       if LOGLEVEL == 'info'
         SemanticLogger['tickets'].info("#{params[:jira]} created
@@ -27,12 +27,13 @@ module Tickets
                                          in #{params[:chatid]}")
       end
     end
- end
+  end
 
   def self.attr_valide(value, attribute)
     result = {}
     case attribute
-    when :jira then result[attribute] = value if Ticket[jira: value]
+    when :jira
+      result[attribute] = value if Ticket[jira: value]
     when :clientid
       if value.split(',').map(&:to_i)[0].is_a?(Integer) && (value.size < 200)
         result[attribute] = BotHelper.normalize_text(value, 200)
@@ -73,8 +74,8 @@ module Tickets
                ['no tickets']
              else
                data = Ticket.where(resolved: params[:resolved]).all
-               data = data.map { |t| "Ticket: #{t.jira}, #{t.status}, cl: #{t.clientid}, pa: #{t.partnerid} в работе: #{BotHelper.normalize_time(Time.now.to_i - t.created)}" }
-        end
+               data = data.map {|t| "Ticket: #{t.jira}, #{t.status}, cl: #{t.clientid}, pa: #{t.partnerid} в работе: #{BotHelper.normalize_time(Time.now.to_i - t.created)}"}
+             end
       BotHelper.send_message(chat_id: params[:chatid],
                              text: "Данные по тикетам:\n#{data.join("\n")}")
     end
@@ -82,10 +83,10 @@ module Tickets
 
   def self.give_client(params = {})
     multilang = {
-      'ru' => { 1 => 'в работе: ',
-                2 => 'Данные по тикетам' },
-      'en' => { 1 => 'processing: ',
-                2 => 'Tickets report' }
+        'ru' => {1 => 'в работе: ',
+                 2 => 'Данные по тикетам'},
+        'en' => {1 => 'processing: ',
+                 2 => 'Tickets report'}
     }
     lang = params[:language]
     if Ticket.where(clientid: params[:clientid]).count == 0
@@ -104,10 +105,10 @@ module Tickets
   def self.give_partner(params = {})
     if (%w[admin testing internal partner].include? params[:type]) && (%w[wallarm admin partner].include? params[:user_type])
       multilang = {
-        'ru' => { 1 => 'в работе: ',
-                  2 => "Данные по тикетам партнера #{params[:partnerid]}" },
-        'en' => { 1 => 'processing: ',
-                  2 => "Tickets report for partner #{params[:partnerid]}" }
+          'ru' => {1 => 'в работе: ',
+                   2 => "Данные по тикетам партнера #{params[:partnerid]}"},
+          'en' => {1 => 'processing: ',
+                   2 => "Tickets report for partner #{params[:partnerid]}"}
       }
       lang = params[:language]
       if Ticket.where(partnerid: params[:partnerid].to_i).count == 0
@@ -149,24 +150,24 @@ module Tickets
   def self.backup
     time_start = Time.now.to_i - 3600 * 24 * 7
     result = Ticket.where(time: time_start..Time.now.to_i).all.map do |t|
-      { created: t.created,
-        jira: t.jira,
-        clientid: t.clientid,
-        status: t.status,
-        resolved: t.resolved,
-        statid: t.statid,
-        userid: t.userid,
-        chatid: t.chatid }
+      {created: t.created,
+       jira: t.jira,
+       clientid: t.clientid,
+       status: t.status,
+       resolved: t.resolved,
+       statid: t.statid,
+       userid: t.userid,
+       chatid: t.chatid}
     end
     SemanticLogger['tickets'].info('backup done') if LOGLEVEL == 'info'
     result
   end
 
   def self.seed(saved_data)
-    saved_data.each { |t| Ticket.create(t) } unless saved_data.nil?
+    saved_data.each {|t| Ticket.create(t)} unless saved_data.nil?
     if LOGLEVEL == 'info'
       SemanticLogger['tickets'].info('table filled by backuped data')
-    end 
+    end
   end
 
   def self.reroll(params = {})

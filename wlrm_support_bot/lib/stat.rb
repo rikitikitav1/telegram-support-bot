@@ -25,7 +25,9 @@ module Statistics
         h.each do |k, v|
           v = if k == :duration
                 BotHelper.normalize_time(v)
-              else; v; end
+              else
+                v
+              end
           str += (k.to_s + ': ' + v.to_s + ', ') if v
         end
         result.push(str)
@@ -42,7 +44,7 @@ module Statistics
 
   def self.create
     DB.create_table :statistics do
-      Bigint  :id, primary_key: true
+      Bigint :id, primary_key: true
       Integer :time, null: false #
       String :clientid, null: true
       Bigint :message_id, null: false
@@ -61,20 +63,20 @@ module Statistics
     time_start = Time.now.to_i - 3600 * 24 * 7
     result = StatisticRecord.where(deleted: false,
                                    time: time_start..Time.now.to_i).all.map do |sr|
-      { time: sr.time,
-        clientid: sr.clientid,
-        message_id: sr.message_id,
-        message_text: sr.message_text,
-        username: sr.username,
-        userid: sr.userid,
-        chatid: sr.chatid }
+      {time: sr.time,
+       clientid: sr.clientid,
+       message_id: sr.message_id,
+       message_text: sr.message_text,
+       username: sr.username,
+       userid: sr.userid,
+       chatid: sr.chatid}
     end
     SemanticLogger['statistics'].info('backup done') if LOGLEVEL == 'info'
     result
   end
 
   def self.seed(saved_data)
-    saved_data.each { |sr| StatisticRecord.create(sr) } unless saved_data.nil?
+    saved_data.each {|sr| StatisticRecord.create(sr)} unless saved_data.nil?
     if LOGLEVEL == 'info'
       SemanticLogger['statistics'].info('table filled by backuped data')
     end
