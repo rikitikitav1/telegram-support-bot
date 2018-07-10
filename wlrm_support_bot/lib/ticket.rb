@@ -33,7 +33,11 @@ module Tickets
     result = {}
     case attribute
     when :jira
-      result[attribute] = value if Ticket[jira: value]
+      if Ticket[jira: value]
+        result[attribute] = value
+      elsif value == 'last'
+        result[attribute] = Ticket.all.last.jira
+      end
     when :clientid
       if value.split(',').map(&:to_i)[0].is_a?(Integer) && (value.size < 200)
         result[attribute] = BotHelper.normalize_text(value, 200)
@@ -52,7 +56,11 @@ module Tickets
   def self.set(params = {})
     if (%w[admin testing].include? params[:type]) && (params[:user_type] == 'admin')
       unless params[:payload].count != 3
-        jira = params[:payload][0].to_s
+        if params[:payload][0] == 'last'
+          jira = DB['SELECT jira FROM tickets where created = (select MAX(created) from tickets)']
+        else
+          jira = params[:payload][0].to_s
+        end
         attribute = params[:payload][1].to_sym
         val = params[:payload][2]
         settable = %i[status jira clientid partnerid resolved]
@@ -153,6 +161,7 @@ module Tickets
       {created: t.created,
        jira: t.jira,
        clientid: t.clientid,
+       partnerid: t.partnerid,
        status: t.status,
        resolved: t.resolved,
        statid: t.statid,

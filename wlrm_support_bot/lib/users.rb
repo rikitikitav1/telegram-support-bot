@@ -34,7 +34,7 @@ module Users
     result = {}
     case attribute
     when :userid
-      result[attribute] = value if User[userid: value]
+     result[attribute] = value if User[userid: value]
     when :name
       if value == BotHelper.normalize_text(value, 100)
         result[attribute] = BotHelper.normalize_text(value, 100).sub('_', ' ')
@@ -75,7 +75,12 @@ module Users
   def self.set(params = {})
     if (%w[admin testing].include? params[:type]) && (params[:user_type] == 'admin')
       unless params[:payload].count != 3
-        user = params[:payload][0].to_i
+        if params[:payload][0] == 'last'
+          user = DB['SELECT userid FROM users where created = (select MAX(created) from users)'][:userid][:userid]
+          SemanticLogger['users'].info("#{user}")
+        else
+          user = params[:payload][0].to_i
+        end
         attribute = params[:payload][1].to_sym
         val = params[:payload][2]
         settable = %i[phone username name type enabled]
@@ -117,27 +122,11 @@ module Users
       String :name, null: true #
       String :phone, null: true #
       String :username, null: true #
+      Integer :created, null: false, default: Time.now.to_i
       String :type, null: false, default: 'client' #
       TrueClass :enabled, null: false, default: true #
     end
     SemanticLogger['users'].info('table created') if LOGLEVEL == 'info'
-  end
-
-  def self.seed_default
-    user_add =
-        [{name: 'Wallarm Support Bot',
-          username: 'wlrm_support_bot',
-          userid: 468_257_117,
-          type: 'admin',
-          enabled: true},
-
-         {name: 'Konstantin Nechaev',
-          username: 'Konst_c13',
-          userid: 212_372_067,
-          type: 'admin',
-          enabled: true}]
-
-    user_add.each {|u| User.where(username: u[:username]).count == 0 ? User.create(u) : nil}
   end
 
   def self.backup
@@ -146,6 +135,7 @@ module Users
        phone: us.phone,
        username: us.username,
        userid: us.userid,
+       created: us.created,
        type: us.type,
        enabled: us.enabled}
     end
@@ -171,7 +161,7 @@ module Users
       saved_data = backup
       drop
       create
-      seed_default
+      Seed.users
       seed(saved_data)
       Statistics.create
       Statistics.seed(saved_stat)

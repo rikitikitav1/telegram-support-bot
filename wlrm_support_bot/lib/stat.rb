@@ -3,37 +3,39 @@
 module Statistics
   # Модуль, который обслуживает работу с таблицей статистики
 
+  # Отчет по тикетам и потраченному времени
+  def self.time_stat_report(time_start, time_end, chat_type)
+    dataset = DB['SELECT c.clientid, c.client, c.partnerid, s.duration, t.tickets
+                    FROM (SELECT MAX(time) - MIN(time) duration, chatid
+                    FROM statistics
+                    WHERE time BETWEEN ? AND ? GROUP BY chatid) s
+                    INNER JOIN (SELECT * FROM chats WHERE type = ?) c
+                    ON s.chatid = c.chatid
+                    LEFT OUTER JOIN (SELECT chatid, GROUP_CONCAT(jira) tickets
+                    FROM tickets WHERE created BETWEEN ? AND ? GROUP BY chatid ) t
+                    ON s.chatid = t.chatid', time_start, time_end, chat_type, time_start, time_end].all
+    result = []
+    dataset.each_with_index do |data_hash, index|
+      result_string = "#{index.succ}) "
+      data_hash.each do |key, value|
+        value = BotHelper.normalize_time(value) if key == :duration
+        result_string += (key.to_s + ': ' + value.to_s + ', ') if value
+      end
+      result.push(result_string)
+    end
+    result
+  end
+
   def self.give(params = {})
     if (%w[internal admin testing].include? params[:type]) && (%w[wallarm admin].include? params[:user_type])
       time_start = params[:start]
       time_end = time_start + 3600 * 24
-      dataset = DB['SELECT c.clientid, c.client, c.partnerid, s.duration, t.tickets
-                    FROM (SELECT MAX(time) - MIN(time) duration, chatid
-                    FROM statistics
-                    WHERE time BETWEEN ? AND ? GROUP BY chatid) s
-                    INNER JOIN (SELECT * FROM chats WHERE type = "client_chat") c
-                    ON s.chatid = c.chatid
-                    LEFT OUTER JOIN (SELECT chatid, GROUP_CONCAT(jira) tickets
-                    FROM tickets WHERE created BETWEEN ? AND ? GROUP BY chatid ) t
-                    ON s.chatid = t.chatid', time_start, time_end, time_start, time_end].all
-      # Тикеты только актуальные показывать, а не все!
-      result = []
-      count = 1
-      dataset.each do |h|
-        str = "#{count}) "
-        count += 1
-        h.each do |k, v|
-          v = if k == :duration
-                BotHelper.normalize_time(v)
-              else
-                v
-              end
-          str += (k.to_s + ': ' + v.to_s + ', ') if v
-        end
-        result.push(str)
-      end
+      client_report = time_stat_report(time_start, time_end, 'client_chat')
       BotHelper.send_message(chat_id: params[:chatid],
-                             text: "Статистика за #{params[:date]}:\n#{result.join("\n")}")
+                             text: "Клиентские чаты: #{params[:date]}:\n#{client_report.join("\n")}")
+      partner_report = time_stat_report(time_start, time_end, 'partner')
+      BotHelper.send_message(chat_id: params[:chatid],
+                             text: "Партнерские чаты: #{params[:date]}:\n#{partner_report.join("\n")}")
     end
   end
 

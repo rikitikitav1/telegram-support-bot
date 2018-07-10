@@ -10,7 +10,7 @@ MULTILANG = {
               for obtaining a manual please use  /help"
       },
       'help' => {
-        'ru' => "Сегдня для клиентов доступно следующее:
+        'ru' => "Сегодня для клиентов доступно следующее:
           /start@wlrm_support_bot или /start - описание
           /language ru - переключение на русскую версию
           /language en - переключение на английскую версию

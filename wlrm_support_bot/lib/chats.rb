@@ -113,7 +113,12 @@ module Chats
   def self.set(params = {})
     if (%w[admin testing].include? params[:type]) && (params[:user_type] == 'admin')
       unless params[:payload].count != 3
-        chat = params[:payload][0].to_i
+          if params[:payload][0] == 'last'
+            chat = DB['SELECT chatid FROM chats where created = (select MAX(created) from chats)'][:chatid][:chatid]
+            SemanticLogger['chats'].info("#{chat}")
+          else
+            chat = params[:payload][0].to_i
+          end
         attribute = params[:payload][1].to_sym
         val = params[:payload][2]
         settable = %i[clientid partnerid client language type enabled]
@@ -133,13 +138,13 @@ module Chats
 
   def self.give(params = {})
     if (%w[admin testing].include? params[:type]) && (params[:user_type] == 'admin')
-      data = if Chat.count == 0
-               ['no chats']
-             else
-               data = Chat.where(enabled: params[:enabled]).all.map do |c|
+      if Chat.count == 0
+        data =  ['no chats']
+      else
+        data = Chat.where(enabled: params[:enabled]).all.map do |c|
                  "cl: #{c.clientid}, name: #{c.client}, pa: #{c.partnerid}, #{c.language}, #{c.type}, #{c.chatid}"
-               end
-             end
+      end
+    end
       BotHelper.send_message(chat_id: params[:chatid],
                              text: "Бот подключен в следующих чатах:\n#{data.join("\n")}")
     end
@@ -162,20 +167,6 @@ module Chats
       TrueClass :enabled, null: false, default: true #
     end
     SemanticLogger['chats'].info('table created') if LOGLEVEL == 'info'
-  end
-
-  def self.seed_default
-    chat_add =
-        [{chatid: -304_890_260,
-          client: 'test',
-          type: 'testing',
-          created: Time.now.to_i,
-          clientid: '1',
-          partnerid: '1',
-          language: 'en',
-          enabled: true}]
-
-    chat_add.each {|c| Chat[chatid: c[:chatid]].nil? ? Chat.create(c) : nil}
   end
 
   def self.backup
@@ -210,7 +201,7 @@ module Chats
       saved_data = backup
       drop
       create
-      seed_default
+      Seed.chats
       seed(saved_data)
       Statistics.create
       Statistics.seed(saved_stat)

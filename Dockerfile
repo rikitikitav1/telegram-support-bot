@@ -1,5 +1,5 @@
 FROM ruby:alpine AS builder
-MAINTAINER knechaev@wallarm.com
+MAINTAINER rikitikitavi1989@yandex.ru
 
 COPY wlrm_support_bot /opt/wlrm_support_bot
 RUN apk -U add make g++ mysql-dev \

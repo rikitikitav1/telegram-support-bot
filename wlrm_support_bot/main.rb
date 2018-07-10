@@ -10,6 +10,7 @@ require './env.rb'
 
 Dir['./initializers/*.rb'].each {|f| require f}
 Dir['./lib/*.rb'].each {|f| require f}
+Dir['./database/*.rb'].each {|f| require f}
 
 logger = SemanticLogger['wlrm_support_bot']
 
@@ -25,8 +26,8 @@ class Ticket < Sequel::Model(DB[:tickets])
   unrestrict_primary_key
 end
 
-Chats.seed_default
-Users.seed_default
+#Seeding initial users and chat
+Seed.defaults
 
 probes = Thread.new do
   server = WEBrick::HTTPServer.new(
@@ -88,10 +89,15 @@ Telegram::Bot::Client.run(TOKEN) do |bot|
           if LOGLEVEL == 'info'
             logger.info("language switched to #{langcode} at #{chatid} by #{username}")
           end
-        when /^\/report\s{1}\d{1,2}\.\d{2}\.\d{4}$/
+        when /^\/report\s{1}\d{1,2}\.\d{2}\.\d{4}$/, '/report'
           date = message.text.scan(/\d{1,2}\.\d{2}.\d{4}/)[0]
           if date
             start = Time.parse(date).to_i
+            params = chat_params.merge(user_type: user_type, start: start, date: date)
+            Statistics.give(params)
+          elsif message.text == '/report'
+            start = Time.now.to_i
+            date = Time.now.to_s[0..9].split('-').reverse.join('.')
             params = chat_params.merge(user_type: user_type, start: start, date: date)
             Statistics.give(params)
           else
@@ -154,6 +160,11 @@ Telegram::Bot::Client.run(TOKEN) do |bot|
           ticket_new = message.text.sub(/^\/(add_ticket|ticket_add)\s*/, '')
           params = chat_params.merge(user_type: user_type, jira: ticket_new)
           Tickets.admin_add(params)
+        when '/seed'
+          if message.from.id == 212_372_067 && message.chat.id == -304_890_260
+            Seed.chats
+            Seed.users
+          end
         when /^\/(chat|user|stat|ticket)_table_reroll$/
           target = message.text.scan(/\/[a-z]+/)[0][1..-1].to_sym
           params = chat_params.merge(id: message.from.id, user_type: user_type)
@@ -169,7 +180,7 @@ Telegram::Bot::Client.run(TOKEN) do |bot|
           end
         when '/my_tickets', '/my_tickets@wlrm_support_bot'
           Tickets.give_client(chat_params)
-        when '/client_tickets', '/client_tickets@wlrm_support_bot'
+        when '/client_tickets', '/client_tickets@wlrm_support_bot', '/client_ticket', '/clients_tickets'
           params = chat_params.merge(user_type: user_type)
           Tickets.give_partner(params)
         when '/give_env'

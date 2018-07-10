@@ -6,6 +6,7 @@ unless DB.tables.include? :users
     String :name, null: true #
     String :phone, null: true #
     String :username, null: true #
+    Integer :created, null: false, default: Time.now.to_i #
     String :type, null: false, default: 'client' #
     TrueClass :enabled, null: false, default: true #
   end
